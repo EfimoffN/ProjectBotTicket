@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"log"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	_ "github.com/lib/pq" // here
 )
 
@@ -17,6 +18,29 @@ var (
 func main() {
 	flag.Parse()
 
-	fmt.Println("Test")
+	bot, err := tgbotapi.NewBotAPI(*BotToken)
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	bot.Debug = true
+
+	log.Printf("Authorized on account %s", bot.Self.UserName)
+
+	u := tgbotapi.NewUpdate(0)
+	u.Timeout = 60
+
+	updates, err := bot.GetUpdatesChan(u)
+	for update := range updates {
+		if update.Message == nil {
+			continue
+		}
+
+		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
+		msg.ReplyToMessageID = update.Message.MessageID
+
+		bot.Send(msg)
+	}
 }
