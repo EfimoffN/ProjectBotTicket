@@ -1,24 +1,30 @@
 package main
 
 import (
-	"flag"
 	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	_ "github.com/lib/pq" // here
+	"github.com/spf13/viper"
 )
 
-var (
-	BotToken        = flag.String("BotToken", "telegram_token", "Path to file keys.json")
-	BindAddr        = flag.String("BindAddr", "localhost", "Path to file keys.json")
-	LogLevel        = flag.String("LogLevel", "debug", "Path to file keys.json")
-	ConnectPostgres = flag.String("ConnectPostgres", "localhost", "Path to file keys.json")
-)
+func runViper() {
+	viper.SetConfigName("keys")
+	viper.SetConfigType("json")
+	viper.AddConfigPath("./config/")
+
+	err := viper.ReadInConfig()
+	if err != nil { // Handle errors reading the config file
+		log.Fatal(err)
+	}
+
+}
 
 func main() {
-	flag.Parse()
+	runViper()
 
-	bot, err := tgbotapi.NewBotAPI(*BotToken)
+	bot, err := tgbotapi.NewBotAPI(viper.GetString("BotToken"))
+
 	if err != nil {
 		log.Fatal(err)
 	}
