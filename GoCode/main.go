@@ -4,6 +4,7 @@ import (
 	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // here
 	"github.com/spf13/viper"
 )
@@ -22,6 +23,13 @@ func runViper() {
 
 func main() {
 	runViper()
+
+	db, err := connectDB(viper.GetString("ConnectPostgres"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer db.Close()
 
 	bot, err := tgbotapi.NewBotAPI(viper.GetString("BotToken"))
 
@@ -49,4 +57,21 @@ func main() {
 
 		bot.Send(msg)
 	}
+}
+
+func connectDB(databaseURL string) (*sqlx.DB, error) {
+
+	db, err := sqlx.Open("postgres", databaseURL)
+	if err != nil {
+		log.Println("sqlx.Open failed with an error: ", err.Error())
+		return nil, err
+	}
+
+	if err := db.Ping(); err != nil {
+		log.Println("DB.Ping failed with an error: ", err.Error())
+		return nil, err
+	}
+
+	return db, err
+
 }
