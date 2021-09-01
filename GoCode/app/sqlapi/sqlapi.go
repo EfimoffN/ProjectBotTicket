@@ -3,6 +3,7 @@ package sqlapi
 import (
 	"log"
 	"projectbotticket/types/apitypes"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // here
@@ -185,6 +186,7 @@ func (api *API) SetNewUser(userName, userId, chatId string) (*apitypes.UserRow, 
 	return user, err
 }
 
+// SetNewExecutor ...
 func (api *API) SetNewExecutor(executorid, executorname, executorpasword string) (*apitypes.ExecutorRow, error) {
 	executor, err := api.GetExecuterById(executorid)
 
@@ -209,4 +211,119 @@ func (api *API) SetNewExecutor(executorid, executorname, executorpasword string)
 	}
 
 	return executor, err
+}
+
+// SetNewOrder ...
+func (api *API) SetNewOrder(orderid, description string) (*apitypes.OrderRow, error) {
+	order, err := api.GetOrderById(orderid)
+
+	if err != nil {
+		log.Println("SetNewOrder api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+	if order != nil {
+		return nil, err
+	}
+
+	status, err := api.GetStatusById("")
+	if err != nil {
+		log.Println("SetNewOrder GetStatusById api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+	if status == nil {
+		return nil, err
+	}
+
+	today := time.Now()
+	orderstarttime := today.Add(10 * time.Minute).Format("2006/1/2 15:04")
+
+	tx := api.db.MustBegin()
+	tx.MustExec(`INSERT INTO prj_order ("orderid", "orderdescription", "statusid", "orderstarttime") VALUES ($1, $2, $3, $4)`,
+		orderid, description, status.StatusId, orderstarttime)
+	tx.Commit()
+
+	order, err = api.GetOrderById(orderid)
+
+	if err != nil {
+		log.Println("SetNewOrder GetUserByID failed with an error: ", err.Error())
+		return nil, err
+	}
+
+	return order, err
+}
+
+// SetUserOrderExecutor ...
+func (api *API) SetUserOrderExecutor(linkid, userid, orderid, executorid string) (*apitypes.UserOrderExecutorRow, error) {
+	userOrderExecutor, err := api.GetUserOrderExecutorById(linkid)
+	if err != nil {
+		log.Println("SetUserOrderExecutor api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+	if userOrderExecutor != nil {
+		return nil, err
+	}
+
+	tx := api.db.MustBegin()
+	tx.MustExec(`INSERT INTO link_userorderexecutor ("linkid", "userid", "orderid", "executorid") VALUES ($1, $2, $3, $4)`,
+		linkid, userid, orderid, executorid)
+	tx.Commit()
+
+	userOrderExecutor, err = api.GetUserOrderExecutorById(linkid)
+
+	if err != nil {
+		log.Println("SetUserOrderExecutor GetUserByID failed with an error: ", err.Error())
+		return nil, err
+	}
+
+	return userOrderExecutor, err
+}
+
+// Block UPDATE
+
+// UpdateUserName ...
+func (api *API) UpdateUserName(userid, nameuser string) (*apitypes.UserRow, error) {
+	userRow, err := api.GetUserByID(userid)
+	if err != nil {
+		log.Println("UpdateUserName api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+	if userRow == nil {
+		return nil, err
+	}
+
+	tx := api.db.MustBegin()
+	tx.MustExec(`UPDATE prj_user SET nameuser=$1 WHERE userid=$2`, nameuser, userid)
+	tx.Commit()
+
+	userRow, err = api.GetUserByID(userid)
+	if err != nil {
+		log.Println("UpdateUserName api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+
+	return userRow, err
+}
+
+// UpdateExecuterName ...
+func (api *API) UpdateExecuterName(executorId, executorName string) (*apitypes.ExecutorRow, error) {
+	executorRow, err := api.GetExecuterById(executorId)
+	if err != nil {
+		log.Println("UpdateExecuterName api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+	if executorRow == nil {
+		return nil, err
+	}
+
+	tx := api.db.MustBegin()
+	tx.MustExec(`UPDATE prj_executor SET executorname=$1 WHERE executorid=$2`, executorName, executorId)
+	tx.Commit()
+
+	executorRow, err = api.GetExecuterById(executorId)
+	if err != nil {
+		log.Println("UpdateExecuterName api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+
+	return executorRow, err
 }
