@@ -1,12 +1,14 @@
 package sqlapi
 
 import (
+	"context"
 	"log"
 	"projectbotticket/types/apitypes"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // here
+	"github.com/pkg/errors"
 )
 
 type API struct {
@@ -80,6 +82,22 @@ func (api *API) GetExecuterByName(executerName string) (*apitypes.ExecutorRow, e
 	err := api.db.Select(&executerRow, "SELECT * FROM prj_executor WHERE executorname = $1", executerName)
 	if err != nil {
 		log.Println("GetExecuterByName api.db.Select failed with an error: ", err.Error())
+		return nil, err
+	}
+	if len(executerRow) == 1 {
+		return &executerRow[0], err
+	}
+
+	return nil, err
+}
+
+// GetExecuterByNamePassword ...
+func (api *API) GetExecuterByNamePassword(executerName, executerPassword string) (*apitypes.ExecutorRow, error) {
+	executerRow := []apitypes.ExecutorRow{}
+
+	err := api.db.Select(&executerRow, "SELECT * FROM prj_executor WHERE executorname = $1 AND executorpasword = $2", executerName, executerPassword)
+	if err != nil {
+		log.Println("GetExecuterByNamePassword api.db.Select failed with an error: ", err.Error())
 		return nil, err
 	}
 	if len(executerRow) == 1 {
@@ -281,19 +299,32 @@ func (api *API) SetUserOrderExecutor(linkid, userid, orderid, executorid string)
 // Block UPDATE
 
 // UpdateUserName ...
-func (api *API) UpdateUserName(userid, nameuser string) (*apitypes.UserRow, error) {
-	userRow, err := api.GetUserByID(userid)
-	if err != nil {
-		log.Println("UpdateUserName api.db.MustExec failed with an error: ", err.Error())
-		return nil, err
-	}
-	if userRow == nil {
-		return nil, err
+func (api *API) UpdateUserName(ctx context.Context, userid, nameuser string) (*apitypes.UserRow, error) {
+	var userRow *apitypes.UserRow
+	var err error
+
+	work := func(ctx context.Context, db TxContext) error {
+		userRow, err := api.GetUserByID(userid)
+		if err != nil {
+			log.Println("UpdateUserName api.db.MustExec failed with an error: ", err.Error())
+			return err
+		}
+		if userRow == nil {
+			return err
+		}
+
+		query := `UPDATE prj_user SET nameuser=$1 WHERE userid=$2`
+
+		if _, err := db.ExecContext(ctx, query, nameuser, userid); err != nil {
+			return errors.Wrap(err, "UpdateUserName UPDATE prj_user failed: %s")
+		}
+
+		return nil
 	}
 
-	tx := api.db.MustBegin()
-	tx.MustExec(`UPDATE prj_user SET nameuser=$1 WHERE userid=$2`, nameuser, userid)
-	tx.Commit()
+	if err := RunInTransaction(ctx, api.db, work); err != nil {
+		return nil, err
+	}
 
 	userRow, err = api.GetUserByID(userid)
 	if err != nil {
@@ -305,19 +336,31 @@ func (api *API) UpdateUserName(userid, nameuser string) (*apitypes.UserRow, erro
 }
 
 // UpdateExecuterName ...
-func (api *API) UpdateExecuterName(executorId, executorName string) (*apitypes.ExecutorRow, error) {
-	executorRow, err := api.GetExecuterById(executorId)
-	if err != nil {
-		log.Println("UpdateExecuterName api.db.MustExec failed with an error: ", err.Error())
-		return nil, err
-	}
-	if executorRow == nil {
-		return nil, err
+func (api *API) UpdateExecuterName(ctx context.Context, executorId, executorName string) (*apitypes.ExecutorRow, error) {
+	var executorRow *apitypes.ExecutorRow
+	var err error
+
+	work := func(ctx context.Context, db TxContext) error {
+		executorRow, err := api.GetExecuterById(executorId)
+		if err != nil {
+			log.Println("UpdateExecuterName api.db.MustExec failed with an error: ", err.Error())
+			return err
+		}
+		if executorRow == nil {
+			return err
+		}
+
+		query := `UPDATE prj_executor SET executorname=$1 WHERE executorid=$2`
+		if _, err := db.ExecContext(ctx, query, executorName, executorId); err != nil {
+			return errors.Wrap(err, "UpdateExecuterName UPDATE prj_executor failed: %s")
+		}
+
+		return nil
 	}
 
-	tx := api.db.MustBegin()
-	tx.MustExec(`UPDATE prj_executor SET executorname=$1 WHERE executorid=$2`, executorName, executorId)
-	tx.Commit()
+	if err := RunInTransaction(ctx, api.db, work); err != nil {
+		return nil, err
+	}
 
 	executorRow, err = api.GetExecuterById(executorId)
 	if err != nil {
@@ -326,4 +369,122 @@ func (api *API) UpdateExecuterName(executorId, executorName string) (*apitypes.E
 	}
 
 	return executorRow, err
+}
+
+// UpdateExecuterPassword ...
+func (api *API) UpdateExecuterPassword(ctx context.Context, nameExecuter, oldPassword, newPassword string) (*apitypes.ExecutorRow, error) {
+
+	var executorRow *apitypes.ExecutorRow
+	var err error
+
+	work := func(ctx context.Context, db TxContext) error {
+		executerRow, err := api.GetExecuterByNamePassword(nameExecuter, oldPassword)
+		if err != nil {
+			log.Println("UpdateExecuterPassword api.db.MustExec failed with an error: ", err.Error())
+			return err
+		}
+		if executerRow == nil {
+			return err
+		}
+
+		query := `UPDATE prj_executor SET executorpasword=$1 WHERE executorid=$2`
+		if _, err := db.ExecContext(ctx, query, newPassword, executerRow.ExecutorId); err != nil {
+			return errors.Wrap(err, "UpdateExecuterPassword UPDATE prj_executor failed: %s")
+		}
+
+		return nil
+	}
+	if err := RunInTransaction(ctx, api.db, work); err != nil {
+		return nil, err
+	}
+
+	executorRow, err = api.GetExecuterByNamePassword(nameExecuter, newPassword)
+
+	if err != nil {
+		log.Println("UpdateExecuterPassword api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+
+	return executorRow, err
+}
+
+// UpdateOrderDescription ...
+func (api *API) UpdateOrderDescription(orderId, orderdescription string) (*apitypes.OrderRow, error) {
+	orderRow, err := api.GetOrderById(orderId)
+	if err != nil {
+		log.Println("UpdateOrderDescription api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+	if orderRow == nil {
+		return nil, err
+	}
+
+	tx := api.db.MustBegin()
+	tx.MustExec(`UPDATE prj_order SET orderdescription=$1 WHERE orderid=$2`, orderdescription, orderId)
+	tx.Commit()
+
+	orderRow, err = api.GetOrderById(orderId)
+
+	if err != nil {
+		log.Println("UpdateOrderDescription api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+
+	return orderRow, err
+}
+
+// UpdateOrderStatus ...
+func (api *API) UpdateOrderStatus(orderId, statusId string) (*apitypes.OrderRow, error) {
+	orderRow, err := api.GetOrderById(orderId)
+	if err != nil {
+		log.Println("UpdateOrderStatus api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+	if orderRow == nil {
+		return nil, err
+	}
+
+	tx := api.db.MustBegin()
+	tx.MustExec(`UPDATE prj_order SET statusid=$1 WHERE orderid=$2`, statusId, orderId)
+	tx.Commit()
+
+	orderRow, err = api.GetOrderById(orderId)
+
+	if err != nil {
+		log.Println("UpdateOrderStatus api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+
+	return orderRow, err
+}
+
+// UpdateOrderFinishStatus ...
+func (api *API) UpdateOrderFinishStatus(orderId string) (*apitypes.OrderRow, error) {
+
+	orderRow, err := api.GetOrderById(orderId)
+	if err != nil {
+		log.Println("UpdateOrderFinishStatus api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+	if orderRow == nil {
+		return nil, err
+	}
+
+	// получать финишный ID
+	var finishId = "123"
+	today := time.Now()
+	orderFinishTime := today.Add(10 * time.Minute).Format("2006/1/2 15:04")
+
+	tx := api.db.MustBegin()
+	tx.MustExec(`UPDATE prj_order SET statusid=$1, orderstoptime=$2 WHERE orderid=$3`, finishId, orderFinishTime, orderId)
+	tx.Commit()
+
+	orderRow, err = api.GetOrderById(orderId)
+
+	if err != nil {
+		log.Println("UpdateOrderFinishStatus api.db.MustExec failed with an error: ", err.Error())
+		return nil, err
+	}
+
+	return orderRow, err
 }
