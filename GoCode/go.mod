@@ -8,5 +8,6 @@ require (
 	github.com/lib/pq v1.2.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/viper v1.8.1 // indirect
+	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 )

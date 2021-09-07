@@ -21,6 +21,15 @@ func NewAPI(db *sqlx.DB) *API {
 	}
 }
 
+// Block test
+
+// GetTestValue ...
+func (api *API) GetTestValue(val int) int {
+	var v = val * 2
+
+	return v
+}
+
 // Block GET
 
 // GetUserByID ...
@@ -186,6 +195,7 @@ func (api *API) SetNewUser(userName, userId, chatId string) (*apitypes.UserRow, 
 		return nil, err
 	}
 	if user != nil {
+		err = errors.New("the user exists")
 		return nil, err
 	}
 
@@ -488,3 +498,5 @@ func (api *API) UpdateOrderFinishStatus(orderId string) (*apitypes.OrderRow, err
 
 	return orderRow, err
 }
+
+//переписать методы Set и UPDATE на транзакции

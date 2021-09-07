@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -61,6 +62,10 @@ func main() {
 
 func connectDB(databaseURL string) (*sqlx.DB, error) {
 
+	fmt.Println("databaseURL")
+	fmt.Println(databaseURL)
+	fmt.Println("databaseURL")
+
 	db, err := sqlx.Open("postgres", databaseURL)
 	if err != nil {
 		log.Println("sqlx.Open failed with an error: ", err.Error())
@@ -73,5 +78,14 @@ func connectDB(databaseURL string) (*sqlx.DB, error) {
 	}
 
 	return db, err
+}
 
+func ConnectDB_Test(databaseURL string) (*sqlx.DB, error) {
+	db, err := connectDB(databaseURL)
+
+	return db, err
+}
+
+func RunViper_Test() {
+	runViper()
 }
