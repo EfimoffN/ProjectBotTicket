@@ -187,31 +187,17 @@ func (api *API) GetUserOrderExecutorByUserIdExecutorId(userId string, executorid
 // Block SET
 
 // SetNewUser ...
-func (api *API) SetNewUser(userName, userId, chatId string) (*apitypes.UserRow, error) {
-	user, err := api.GetUserByID(userId)
+func (api *API) SetNewUser(ctx context.Context, user apitypes.UserRow) error {
+	const query = `INSERT INTO prj_user(userid, nameuser, chatid)
+	VALUES (:userid, :nameuser, :chatid)
+	ON CONFLICT DO NOTHING
+	;`
 
-	if err != nil {
-		log.Println("SetNewUser api.db.MustExec failed with an error: ", err.Error())
-		return nil, err
-	}
-	if user != nil {
-		err = errors.New("the user exists")
-		return nil, err
+	if _, err := api.db.NamedExecContext(ctx, query, user); err != nil {
+		return errors.Wrap(err, "can't add new user")
 	}
 
-	tx := api.db.MustBegin()
-	tx.MustExec(`INSERT INTO prj_user ("userid", "nameuser", "chatid") VALUES ($1, $2, $3)`,
-		userId, userName, chatId)
-	tx.Commit()
-
-	user, err = api.GetUserByID(userId)
-
-	if err != nil {
-		log.Println("AddNewUser GetUserByID failed with an error: ", err.Error())
-		return nil, err
-	}
-
-	return user, err
+	return nil
 }
 
 // SetNewExecutor ...
