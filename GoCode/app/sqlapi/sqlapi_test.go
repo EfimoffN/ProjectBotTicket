@@ -179,3 +179,136 @@ func TestSetNewUser2(t *testing.T) {
 		})
 	}
 }
+
+func TestGetUserById(t *testing.T) {
+
+	columns := []string{"userid", "nameuser", "chatid"}
+
+	const expectedQuery = `SELECT (.+) FROM prj_user WHERE userid = (.+);`
+
+	tests := []struct {
+		name    string
+		prepare func(mock sqlmock.Sqlmock)
+		wantErr bool
+	}{
+		{
+			"1. Get user",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(expectedQuery).
+					WithArgs("UserId").
+					WillReturnRows(sqlmock.NewRows(columns).FromCSVString("1,1,1"))
+			},
+			false,
+		},
+		{
+			"2. Get user nil",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(expectedQuery).
+					WithArgs("UserId").
+					WillReturnRows(sqlmock.NewRows(columns).FromCSVString("0,0,0"))
+			},
+			false,
+		},
+		{
+			"3. error on SELECT",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(expectedQuery).
+					WithArgs("UserId").
+					WillReturnRows(sqlmock.NewRows(columns).FromCSVString("0,1"))
+			},
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			baseDb, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+			}
+			db := sqlx.NewDb(baseDb, "postgres")
+			defer db.Close()
+
+			tt.prepare(mock)
+
+			api := NewAPI(db)
+
+			_, err = api.GetUserByID("UserId")
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SetNewUser() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("SetNewUser() there were unfulfilled expectations: %s", err)
+			}
+		})
+	}
+}
+
+func TestGetUserByName(t *testing.T) {
+	columns := []string{"userid", "nameuser", "chatid"}
+
+	const expectedQuery = `SELECT (.+) FROM prj_user WHERE nameuser = (.+);`
+
+	tests := []struct {
+		name    string
+		prepare func(mock sqlmock.Sqlmock)
+		wantErr bool
+	}{
+		{
+			"1. Get user",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(expectedQuery).
+					WithArgs("UserName").
+					WillReturnRows(sqlmock.NewRows(columns).FromCSVString("1,1,1"))
+			},
+			false,
+		},
+		{
+			"2. Get user nil",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(expectedQuery).
+					WithArgs("UserName").
+					WillReturnRows(sqlmock.NewRows(columns).FromCSVString("0,0,0"))
+			},
+			false,
+		},
+		{
+			"3. error on SELECT",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(expectedQuery).
+					WithArgs("UserName").
+					WillReturnRows(sqlmock.NewRows(columns).FromCSVString("0,1"))
+			},
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			baseDb, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+			}
+			db := sqlx.NewDb(baseDb, "postgres")
+			defer db.Close()
+
+			tt.prepare(mock)
+
+			api := NewAPI(db)
+
+			_, err = api.GetUserByName("UserName")
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetUserByName() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("GetUserByName() there were unfulfilled expectations: %s", err)
+			}
+		})
+	}
+}
