@@ -312,3 +312,69 @@ func TestGetUserByName(t *testing.T) {
 		})
 	}
 }
+
+func TestSetNewExecutor(t *testing.T) {
+
+	ctx := context.Background()
+	executor := apitypes.ExecutorRow{
+		ExecutorId:      "some_executor_id",
+		ExecutorName:    "some_executor_name",
+		ExecutorPasword: "some_executor_pasword",
+	}
+
+	const expectedQuery = `INSERT INTO prj_executor\(executorid, executorname, executorpasword\)
+	VALUES (.+)
+	ON CONFLICT DO NOTHING
+	;`
+
+	tests := []struct {
+		name    string
+		prepare func(mock sqlmock.Sqlmock)
+		wantErr bool
+	}{
+		{
+			"1. error on add new executor",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectExec(expectedQuery).
+					WithArgs(executor.ExecutorId, executor.ExecutorName, executor.ExecutorPasword).
+					WillReturnError(errors.New("some error"))
+			},
+			true,
+		},
+		{
+			"2. success add new executor",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectExec(expectedQuery).
+					WithArgs(executor.ExecutorId, executor.ExecutorName, executor.ExecutorPasword).
+					WillReturnResult(sqlmock.NewResult(1, 0))
+			},
+			false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			baseDb, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+			}
+			db := sqlx.NewDb(baseDb, "postgres")
+			defer db.Close()
+
+			tt.prepare(mock)
+
+			api := NewAPI(db)
+
+			err = api.SetNewExecutor(ctx, executor)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SetNewExecutor() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("SetNewExecutor() there were unfulfilled expectations: %s", err)
+			}
+		})
+	}
+}
