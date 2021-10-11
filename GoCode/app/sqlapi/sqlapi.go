@@ -222,8 +222,7 @@ func (api *API) SetNewUser(ctx context.Context, user apitypes.UserRow) error {
 func (api *API) SetNewExecutor(ctx context.Context, executor apitypes.ExecutorRow) error {
 	const query = `INSERT INTO prj_executor(executorid, executorname, executorpasword)
 	VALUES (:executorid, :executorname, :executorpasword)
-	ON CONFLICT DO NOTHING
-	;`
+	ON CONFLICT DO NOTHING;`
 
 	if _, err := api.db.NamedExecContext(ctx, query, executor); err != nil {
 		return errors.Wrap(err, "can't add new executor")
@@ -235,9 +234,8 @@ func (api *API) SetNewExecutor(ctx context.Context, executor apitypes.ExecutorRo
 // SetNewOrder ...
 func (api *API) SetNewOrder(ctx context.Context, orderRow apitypes.OrderRow) error {
 	const query = `INSERT INTO prj_order(orderid, orderdescription, statusid, orderstarttime)
-	VALUES (:orderid, :orderdescription, :statusId, :orderstarttime)
-	ON CONFLICT DO NOTHING
-	;`
+	VALUES (:orderid, :orderdescription, :statusid, :orderstarttime)
+	ON CONFLICT DO NOTHING;`
 
 	if _, err := api.db.NamedExecContext(ctx, query, orderRow); err != nil {
 		return errors.Wrap(err, "can't add new order")
@@ -251,8 +249,7 @@ func (api *API) SetUserOrderExecutor(ctx context.Context, orderExecutor apitypes
 
 	const query = `INSERT INTO link_userorderexecutor (linkid, userid, orderid, executorid) 
 	VALUES (:linkid, :userid, :orderid, :executorid)
-	ON CONFLICT DO NOTHING
-	;`
+	ON CONFLICT DO NOTHING;`
 
 	if _, err := api.db.NamedExecContext(ctx, query, orderExecutor); err != nil {
 		return errors.Wrap(err, "can't add new order")

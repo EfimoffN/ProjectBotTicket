@@ -6,6 +6,7 @@ import (
 	"log"
 	"projectbotticket/types/apitypes"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"
@@ -324,8 +325,7 @@ func TestSetNewExecutor(t *testing.T) {
 
 	const expectedQuery = `INSERT INTO prj_executor\(executorid, executorname, executorpasword\)
 	VALUES (.+)
-	ON CONFLICT DO NOTHING
-	;`
+	ON CONFLICT DO NOTHING;`
 
 	tests := []struct {
 		name    string
@@ -365,9 +365,7 @@ func TestSetNewExecutor(t *testing.T) {
 
 			api := NewAPI(db)
 
-			err = api.SetNewExecutor(ctx, executor)
-
-			if (err != nil) != tt.wantErr {
+			if err = api.SetNewExecutor(ctx, executor); (err != nil) != tt.wantErr {
 				t.Errorf("SetNewExecutor() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
@@ -377,4 +375,137 @@ func TestSetNewExecutor(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetNewOreder(t *testing.T) {
+
+	today := time.Now()
+	tTimeStart := today.Add(10 * time.Minute)
+	tTimeStop := today.Add(60 * time.Minute)
+
+	ctx := context.Background()
+	order := apitypes.OrderRow{
+		OrderId:          "some_order_id",
+		OrderNumber:      1,
+		OrderDescription: "some_order_description",
+		StatusId:         "some_order_statusId",
+		OrderStartTime:   tTimeStart,
+		OrderStopTime:    tTimeStop,
+	}
+
+	const orderQuery = `INSERT INTO prj_order\(orderid, orderdescription, statusid, orderstarttime\)
+	VALUES (.+)
+	ON CONFLICT DO NOTHING;`
+
+	tests := []struct {
+		name    string
+		prepare func(mock sqlmock.Sqlmock)
+		wantErr bool
+	}{
+		{
+			"1. error on add new order",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectExec(orderQuery).
+					WithArgs(order.OrderId, order.OrderDescription, order.StatusId, order.OrderStartTime).
+					WillReturnError(errors.New("some error"))
+			},
+			true,
+		},
+		{
+			"2. success add new order",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectExec(orderQuery).
+					WithArgs(order.OrderId, order.OrderDescription, order.StatusId, order.OrderStartTime).
+					WillReturnResult(sqlmock.NewResult(1, 0))
+			},
+			false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			baseDb, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+			}
+			db := sqlx.NewDb(baseDb, "postgres")
+			defer db.Close()
+
+			tt.prepare(mock)
+
+			api := NewAPI(db)
+
+			if err = api.SetNewOrder(ctx, order); (err != nil) != tt.wantErr {
+				t.Errorf("SetNewOrder() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("SetNewOrder() there were unfulfilled expectations: %s", err)
+			}
+		})
+	}
+}
+
+func TestSetSetUserOrderExecutor(t *testing.T) {
+	ctx := context.Background()
+	userOrderExecutor := apitypes.UserOrderExecutorRow{
+		LinkId:     "some_orderexecutor_id",
+		UserId:     "some_user_id",
+		OrderId:    "some_order_id",
+		ExecutorId: "some_executor_id",
+	}
+
+	const userOrderExecutorQuery = `INSERT INTO link_userorderexecutor \(linkid, userid, orderid, executorid\) 
+	VALUES (.+)
+	ON CONFLICT DO NOTHING;`
+
+	tests := []struct {
+		name    string
+		prepare func(mock sqlmock.Sqlmock)
+		wantErr bool
+	}{
+		{
+			"1. error on add new executor",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectExec(userOrderExecutorQuery).
+					WithArgs(userOrderExecutor.LinkId, userOrderExecutor.UserId, userOrderExecutor.OrderId, userOrderExecutor.ExecutorId).
+					WillReturnError(errors.New("some error"))
+			},
+			true,
+		},
+		{
+			"2. success add new executor",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectExec(userOrderExecutorQuery).
+					WithArgs(userOrderExecutor.LinkId, userOrderExecutor.UserId, userOrderExecutor.OrderId, userOrderExecutor.ExecutorId).
+					WillReturnResult(sqlmock.NewResult(1, 0))
+			},
+			false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			baseDb, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+			}
+			db := sqlx.NewDb(baseDb, "postgres")
+			defer db.Close()
+
+			tt.prepare(mock)
+
+			api := NewAPI(db)
+
+			if err = api.SetUserOrderExecutor(ctx, userOrderExecutor); (err != nil) != tt.wantErr {
+				t.Errorf("SetUserOrderExecutor() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("SetUserOrderExecutor() there were unfulfilled expectations: %s", err)
+			}
+		})
+	}
+
 }
