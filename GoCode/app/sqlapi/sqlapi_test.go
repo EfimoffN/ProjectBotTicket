@@ -509,3 +509,69 @@ func TestSetSetUserOrderExecutor(t *testing.T) {
 	}
 
 }
+
+func TestUpdateUserName(t *testing.T) {
+
+	ctx := context.Background()
+
+	user := apitypes.UserRow{
+		UserId:   "some_user_id",
+		NameUser: "some_user_name",
+		ChatId:   "some_chat_id",
+	}
+
+	const updateUserNameQuery = `UPDATE prj_user SET nameuser=(.+) WHERE userid=(.+)`
+
+	tests := []struct {
+		name    string
+		prepare func(mock sqlmock.Sqlmock)
+		wantErr bool
+	}{
+		{
+			"1. error on Update User Name",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(updateUserNameQuery).
+					WithArgs(user.UserId, user.NameUser).
+					WillReturnError(errors.New("some error"))
+				mock.ExpectRollback()
+			},
+			true,
+		},
+		{
+			"2. success Update User Name",
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectExec(updateUserNameQuery).
+					WithArgs(user.UserId, user.NameUser).
+					WillReturnResult(sqlmock.NewResult(1, 0))
+				mock.ExpectRollback()
+			},
+			false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			baseDb, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+			}
+			db := sqlx.NewDb(baseDb, "postgres")
+			defer db.Close()
+
+			tt.prepare(mock)
+
+			api := NewAPI(db)
+
+			if err = api.UpdateUserName(ctx, user.UserId, user.NameUser); (err != nil) != tt.wantErr {
+				t.Errorf("UpdateUserName() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("UpdateUserName() there were unfulfilled expectations: %s", err)
+			}
+		})
+	}
+}
