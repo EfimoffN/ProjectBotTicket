@@ -52,3 +52,33 @@ CREATE TABLE link_userorderexecutor(
         REFERENCES prj_executor (executorid ) MATCH SIMPLE 
         ON UPDATE RESTRICT ON DELETE RESTRICT
 );
+
+
+CREATE TABLE prj_botwork(
+    botworkid CHARACTER VARYING(32) NOT NULL,
+    userid CHARACTER VARYING(32) NOT NULL,
+    botworkflag boolean NOT NULL,
+
+    CONSTRAINT pk_prj_botworkid PRIMARY KEY (botworkid),
+    CONSTRAINT pk_prj_user FOREIGN KEY (userid)
+        REFERENCES prj_user (userid) MATCH SIMPLE 
+        ON UPDATE RESTRICT ON DELETE CASCADE
+)
+WITH(
+	OIDS=FALSE
+);
+
+CREATE TABLE prj_lastusercommand(
+    commandid CHARACTER VARYING(32) NOT NULL,
+    userid CHARACTER VARYING(32) NOT NULL,
+    command CHARACTER VARYING(32) NOT NULL,
+    datacommand TIMESTAMP WITHOUT TIME ZONE,
+
+    CONSTRAINT pk_prj_commandid PRIMARY KEY (commandid),
+        CONSTRAINT pk_prj_user FOREIGN KEY (userid)
+        REFERENCES prj_user (userid) MATCH SIMPLE 
+        ON UPDATE RESTRICT ON DELETE CASCADE
+)
+WITH(
+	OIDS=FALSE
+);

@@ -1,8 +1,13 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
+	"io/ioutil"
 	"log"
+
+	"projectbotticket/app/sqlapi"
+	"projectbotticket/service"
+	"projectbotticket/types"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
@@ -25,12 +30,19 @@ func runViper() {
 func main() {
 	runViper()
 
+	commandsBot, err := getCommands()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	db, err := connectDB(viper.GetString("ConnectPostgres"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	defer db.Close()
+	apiStorage := sqlapi.NewAPI(db)
+	svc := service.NewBotSvc(apiStorage, commandsBot)
 
 	bot, err := tgbotapi.NewBotAPI(viper.GetString("BotToken"))
 
@@ -60,11 +72,8 @@ func main() {
 	}
 }
 
+// connectDB ...
 func connectDB(databaseURL string) (*sqlx.DB, error) {
-
-	fmt.Println("databaseURL")
-	fmt.Println(databaseURL)
-	fmt.Println("databaseURL")
 
 	db, err := sqlx.Open("postgres", databaseURL)
 	if err != nil {
@@ -88,4 +97,21 @@ func ConnectDB_Test(databaseURL string) (*sqlx.DB, error) {
 
 func RunViper_Test() {
 	runViper()
+}
+
+func getCommands() (types.Commands, error) {
+	data, err := ioutil.ReadFile("./config/command.json")
+	if err != nil {
+		log.Println("Reading the command file ended with an error: ", err.Error())
+		return types.Commands{}, err
+	}
+
+	cmd := types.Commands{}
+	err = json.Unmarshal(data, &cmd)
+	if err != nil {
+		log.Println("Unmarshal ended with an error: ", err.Error())
+		return types.Commands{}, err
+	}
+
+	return cmd, nil
 }

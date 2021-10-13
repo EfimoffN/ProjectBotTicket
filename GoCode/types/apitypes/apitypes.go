@@ -49,3 +49,18 @@ type UserOrderExecutorRow struct {
 	OrderId    string `db:"orderid"`
 	ExecutorId string `db:"executorid"`
 }
+
+// BotWork ...
+type BotWork struct {
+	BotWorkID   string `db:"botworkid"`
+	UserID      string `db:"userid"`
+	BotWorkFlag bool   `db:"botworkflag"`
+}
+
+// LastUserCommand ...
+type LastUserCommand struct {
+	CommandID   string    `db:"commandid"`
+	UserID      string    `db:"userid"`
+	Command     string    `db:"command"`
+	DataCommand time.Time `db:"datacommand"`
+}
